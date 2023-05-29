@@ -44,7 +44,7 @@ let persons = [
 app.get("/", (req, res) => {
   const time = new Date();
   const info = persons.length;
-  return res.send(`
+  res.send(`
   Phonebook has info for ${info} people
   <br/>
   ${time}`);
