@@ -1,9 +1,11 @@
 import express from "express";
 import morgan from "morgan";
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
+app.use(express.static("build"));
+
 
 morgan.token("post-req", function (req, res) {
   if (req.method === "POST") {
@@ -44,7 +46,7 @@ let persons = [
 app.get("/", (req, res) => {
   const time = new Date();
   const info = persons.length;
-  res.send(`
+res.send(`
   Phonebook has info for ${info} people
   <br/>
   ${time}`);
