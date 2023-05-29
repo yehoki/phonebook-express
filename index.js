@@ -117,6 +117,6 @@ app.post("/api/persons", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(
-    `Server running at https://nodejs-production-e3f7.up.railway.app`
+    `Server running at https://nodejs-production-e3f7.up.railway.app on port ${PORT}`
   );
 });
