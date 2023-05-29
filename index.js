@@ -66,6 +66,12 @@ app.get(`/api/persons/:id`, (req, res) => {
   }
 });
 
+app.delete("/api/persons/:id", (req, res) => {
+  const id = Number(req.params.id);
+  persons = persons.filter((person) => person.id !== id);
+  res.status(204).end();
+});
+
 const findFirstFreeId = () => {
   if (persons.length === 0) {
     return 1;
