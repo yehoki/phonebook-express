@@ -1,11 +1,14 @@
-import express from "express";
-import morgan from "morgan";
-
-const PORT = process.env.PORT || 3000;
+require("dotenv").config();
+const express = require("express");
+const morgan = require("morgan");
+const cors = require("cors");
 const app = express();
-app.use(express.json());
-app.use(express.static("build"));
+const Person = require("./models/Person");
+const PORT = process.env.PORT || 3000;
 
+app.use(express.static("build"));
+app.use(express.json());
+app.use(cors());
 
 morgan.token("post-req", function (req, res) {
   if (req.method === "POST") {
@@ -20,109 +23,89 @@ app.use(
   )
 );
 
-let persons = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
-
-app.get("/", (req, res) => {
-  const time = new Date();
-  const info = persons.length;
-res.send(`
-  Phonebook has info for ${info} people
-  <br/>
-  ${time}`);
-});
-
-app.get("/api/persons", (req, res) => {
-  res.json(persons);
-});
-
-app.get(`/api/persons/:id`, (req, res) => {
-  const id = Number(req.params.id);
-  const findPerson = persons.find((person) => person.id === id);
-  if (findPerson) {
-    res.json(findPerson);
-  } else {
-    res.status(404).end();
-  }
-});
-
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((person) => person.id !== id);
-  res.status(204).end();
-});
-
-const findFirstFreeId = () => {
-  if (persons.length === 0) {
-    return 1;
-  }
-  let highest = 0;
-  persons.forEach((person) => {
-    if (person.id > highest) {
-      highest = person.id;
-    }
-  });
-  const findArr = [];
-  for (let i = 0; i < highest; i++) {
-    findArr.push(i + 1);
-  }
-  const personsIds = persons.map((person) => person.id);
-  const lowestIdAvail =
-    persons.length === findArr.length
-      ? highest + 1
-      : Math.min(findArr.filter((person) => !personsIds.includes(person)));
-  return lowestIdAvail;
+const unknownEndpoint = (req, res) => {
+  res.status(404).send({ error: "unkown endpoint" });
 };
 
-app.post("/api/persons", (req, res) => {
-  const person = req.body;
-  if (!person.name) {
-    return res.status(400).send("The name is missing!");
-  } else if (!person.number) {
-    return res.status(400).send("The number is missing");
+const errorHandler = (err, req, res, next) => {
+  console.error(err.message);
+  if (err.name === "CastError") {
+    return res.status(400).send({ error: "malformatted id" });
+  } else if (err.name === "ValidationError") {
+    return res.status(400).json({ error: err.message });
   }
+  next(err);
+};
 
-  const findNames = persons.filter(
-    (personName) => personName.name.toLowerCase() === person.name.toLowerCase()
-  );
-  if (findNames.length !== 0) {
-    return res
-      .status(400)
-      .send(`${person.name} already exists in the phonebook!`)
-      .end();
-  }
-  const id = findFirstFreeId();
-  const newPerson = {
-    id: id,
-    name: person.name,
-    number: person.number,
-  };
-  persons = persons.concat(newPerson);
-  res.json(newPerson);
+// app.get("/", (req, res) => {
+//   const time = new Date();
+//   Person.find({}).then((persons) => {
+//     res.send(`
+//     Phonebook has info for ${persons.length} people
+//     <br/>
+//     ${time}`);
+//   });
+// });
+
+app.get("/api/persons", (req, res, next) => {
+  Person.find({})
+    .then((persons) => res.json(persons))
+    .catch((err) => next(err));
 });
 
+app.get(`/api/persons/:id`, (req, res, next) => {
+  const id = req.params.id;
+  Person.findById(id)
+    .then((person) => {
+      if (person) {
+        res.json(person);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((err) => {
+      next(err);
+    });
+});
+
+app.delete("/api/persons/:id", (req, res, next) => {
+  Person.findByIdAndRemove(req.params.id)
+    .then((result) => {
+      res.status(204).end();
+    })
+    .catch((err) => next(err));
+});
+
+app.post("/api/persons", (req, res, next) => {
+  const data = req.body;
+  if (data.name === undefined) {
+    return res.status(400).json({ error: "Name missing" });
+  }
+  const person = new Person({
+    name: data.name,
+    number: data.number,
+  });
+  person
+    .save()
+    .then((savedPerson) => res.json(savedPerson))
+    .catch((err) => next(err));
+});
+
+app.put("/api/persons/:id", (req, res, next) => {
+  const { name, number } = req.body;
+
+  Person.findByIdAndUpdate(
+    req.params.id,
+    { name, number },
+    { new: true, runValidators: true, context: "query" }
+  )
+    .then((updatePerson) => res.json(updatePerson))
+    .catch((err) => next(err));
+});
+
+app.use(unknownEndpoint);
+app.use(errorHandler);
+
 app.listen(PORT, () => {
-  console.log(
-    `Server running at https://nodejs-production-e3f7.up.railway.app on port ${PORT}`
-  );
+  console.log(`Server running on port ${PORT}`);
 });
